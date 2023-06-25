@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+
+message ChatMessage {
+  string sender = 1;
+  string receiver = 2;
+  string message = 3;
+}
+
+message ToAllMessage {
+  string messageBody = 1;
+}
