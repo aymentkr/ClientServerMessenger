@@ -3,7 +3,6 @@ package org.example;
 import com.google.protobuf.util.JsonFormat;
 import org.example.protocol.Chat.ChatMessage;
 
-import java.io.Console;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
@@ -15,13 +14,13 @@ public class Client {
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 1234;
 
-    private String username;
-    private ExecutorService threadPool;
+    private final String username;
+    private final ExecutorService threadPool;
     private Socket socket;
     private PrintWriter writer;
     private Scanner reader;
-    private Scanner consoleScanner;
-    private JsonFormat.Parser jsonParser;
+    private final Scanner consoleScanner;
+    private final JsonFormat.Parser jsonParser;
 
     public Client(String username) {
         this.username = username;
@@ -69,7 +68,7 @@ public class Client {
         String receiverUsername = consoleScanner.nextLine();
         System.out.print("Enter message: ");
         String message = consoleScanner.nextLine();
-        sendMessage(username,receiverUsername, message);
+        sendMessage(username, receiverUsername, message);
     }
 
     public void shutdown() {
@@ -92,7 +91,7 @@ public class Client {
 
         while (true) {
             client.sendMessageFromConsole();
-            System.out.println("Do you want to send another message? (y/n): ");
+            System.out.print("Do you want to send another message? (y/n): ");
             String choice = scanner.nextLine();
             if (choice.equalsIgnoreCase("n")) {
                 break;
@@ -104,7 +103,7 @@ public class Client {
     }
 
     private class MessageReceiver implements Runnable {
-        private StringBuilder messageBuffer;
+        private final StringBuilder messageBuffer;
 
         public MessageReceiver() {
             messageBuffer = new StringBuilder();
@@ -127,8 +126,9 @@ public class Client {
                         String sender = chatMsg.getSender();
                         String receiver = chatMsg.getReceiver();
                         String message = chatMsg.getMessage();
-                        if (receiver.equals(username))
-                        System.out.println("Received message from " + sender + ": " + message);
+                        if (receiver.equals(username) || receiver.equals("all")) {
+                            System.out.println("Received message from " + sender + ": " + message);
+                        }
                     }
                 }
             } catch (Exception e) {

@@ -1,5 +1,6 @@
 package org.example;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import org.example.protocol.Chat.ChatMessage;
 
@@ -10,9 +11,9 @@ import java.net.Socket;
 import java.util.*;
 
 public class Server {
-    private Map<String, ClientHandler> clients;
-    private Queue<String> messageQueue;
-    private JsonFormat.Parser jsonParser;
+    private final Map<String, ClientHandler> clients;
+    private final Queue<String> messageQueue;
+    private final JsonFormat.Parser jsonParser;
 
     public Server() {
         clients = new HashMap<>();
@@ -24,6 +25,19 @@ public class Server {
         try {
             ServerSocket serverSocket = new ServerSocket(port);
             System.out.println("Server started on port " + port);
+
+            // Create a separate thread for reading console input
+            Thread consoleThread = new Thread(() -> {
+                Scanner scanner = new Scanner(System.in);
+                while (true) {
+                    String input = scanner.nextLine();
+                    if (input.startsWith("/all ")) {
+                        String message = input.substring(5); // Remove "/all " prefix
+                        sendMessageToClient("Server", "all", message);
+                    }
+                }
+            });
+            consoleThread.start();
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
@@ -40,14 +54,21 @@ public class Server {
     }
 
     public void sendMessageToClient(String sender, String receiver, String message) {
-        ClientHandler client = clients.get(receiver);
-        if (client != null) {
-            client.sendMessage(sender,receiver, message);
+        if (receiver.equals("all")) {
+            for (ClientHandler client : clients.values()) {
+                client.sendMessage(sender, receiver, message);
+            }
         } else {
-            // Add the message to the queue for offline clients
-            messageQueue.add(receiver + ":" + sender + ":" + message);
+            ClientHandler client = clients.get(receiver);
+            if (client != null) {
+                client.sendMessage(sender, receiver, message);
+            } else {
+                // Add the message to the queue for offline clients
+                messageQueue.add(receiver + ":" + sender + ":" + message);
+            }
         }
     }
+
 
     private void sendQueuedMessages(ClientHandler clientHandler) {
         String username = clientHandler.getUsername();
@@ -61,7 +82,7 @@ public class Server {
             String message = parts[2];
 
             if (receiver.equals(username)) {
-                clientHandler.sendMessage(sender,receiver,message);
+                clientHandler.sendMessage(sender, receiver, message);
                 iterator.remove();
             }
         }
@@ -73,11 +94,11 @@ public class Server {
     }
 
     private class ClientHandler implements Runnable {
-        private Socket clientSocket;
+        private final Socket clientSocket;
         private PrintWriter writer;
         private Scanner reader;
         private String username;
-        private StringBuilder messageBuffer;
+        private final StringBuilder messageBuffer;
 
         public ClientHandler(Socket socket) {
             clientSocket = socket;
@@ -94,7 +115,7 @@ public class Server {
             return username;
         }
 
-        public void sendMessage(String sender,String receiver, String message) {
+        public void sendMessage(String sender, String receiver, String message) {
             ChatMessage chatMsg = ChatMessage.newBuilder()
                     .setSender(sender)
                     .setReceiver(receiver)
@@ -104,9 +125,10 @@ public class Server {
             String json = "";
             try {
                 json = JsonFormat.printer().print(chatMsg);
-            } catch (IOException e) {
+            } catch (InvalidProtocolBufferException e) {
                 e.printStackTrace();
             }
+
             writer.println(json);
             writer.flush();
         }
@@ -138,13 +160,7 @@ public class Server {
                             String message = chatMsg.getMessage();
 
                             System.out.println("Received message from " + sender + " to " + receiver + ": " + message);
-
-                            sendMessageToClient(sender,receiver,message);
-                            /*for (ClientHandler client : clients.values()) {
-                                if (!client.getUsername().equals(username)) {
-                                    sendMessageToClient(sender, client.getUsername(), message);
-                                }
-                            }*/
+                            sendMessageToClient(sender, receiver, message);
                         }
                     }
                 }
